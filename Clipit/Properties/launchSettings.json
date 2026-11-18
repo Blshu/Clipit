@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Clipit (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "Clipit (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

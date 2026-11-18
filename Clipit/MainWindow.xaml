@@ -1,0 +1,191 @@
+<winex:WindowEx
+    x:Class="Clipit.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:winex="using:WinUIEx"
+    xmlns:local="using:Clipit"
+    Width="440"
+    Height="560"
+    IsTitleBarVisible="False"
+    IsResizable="False"
+    IsAlwaysOnTop="True">
+
+    <winex:WindowEx.SystemBackdrop>
+        <DesktopAcrylicBackdrop />
+    </winex:WindowEx.SystemBackdrop>
+
+    <Grid>
+        <!-- 메인 클립보드 뷰 -->
+        <Grid x:Name="MainView" Padding="16" RowSpacing="12">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <!-- 상단 검색 + 전체 비우기 + 설정 버튼 -->
+            <Grid ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBox x:Name="SearchBox"
+                         PlaceholderText="검색... (↑↓ 이동, Enter 복사, Esc 닫기)"
+                         TextChanged="SearchBox_TextChanged"
+                         PreviewKeyDown="SearchBox_PreviewKeyDown" />
+
+                <Button Grid.Column="1"
+                        Click="ClearAllButton_Click"
+                        Padding="8"
+                        ToolTipService.ToolTip="고정 항목 제외 전체 비우기">
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE74D;" FontSize="15" />
+                </Button>
+
+                <Button Grid.Column="2"
+                        Click="OpenSettingsButton_Click"
+                        Padding="8"
+                        ToolTipService.ToolTip="설정">
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE713;" FontSize="15" />
+                </Button>
+            </Grid>
+
+            <!-- 클립보드 리스트 -->
+            <ListView x:Name="HistoryList"
+                      Grid.Row="1"
+                      SelectionMode="Single"
+                      IsItemClickEnabled="True"
+                      ItemClick="HistoryList_ItemClick"
+                      KeyDown="HistoryList_KeyDown">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="local:ClipboardItem">
+                        <Grid Padding="4,6" ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- 텍스트 표시 영역 -->
+                            <TextBlock Text="{x:Bind Preview}"
+                                       Visibility="{x:Bind TextVisibility}"
+                                       MaxLines="2"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+
+                            <!-- 이미지 썸네일 + 해상도 표시 영역 -->
+                            <StackPanel Visibility="{x:Bind ImageVisibility}"
+                                        Orientation="Horizontal"
+                                        Spacing="10"
+                                        VerticalAlignment="Center">
+                                <Border CornerRadius="6"
+                                        Width="68"
+                                        Height="46"
+                                        Background="{ThemeResource CardBackgroundFillColorSecondaryBrush}">
+                                    <Image Source="{x:Bind ThumbnailSource}"
+                                           Stretch="UniformToFill" />
+                                </Border>
+                                <TextBlock Text="{x:Bind Preview}"
+                                           FontSize="12"
+                                           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+
+                            <TextBlock Grid.Column="1"
+                                       Text="{x:Bind TimeFormatted}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       FontSize="11"
+                                       Margin="4,0"
+                                       VerticalAlignment="Center" />
+
+                            <Button Grid.Column="2"
+                                    Tag="{x:Bind}"
+                                    Click="PinButton_Click"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="6"
+                                    ToolTipService.ToolTip="고정/해제">
+                                <FontIcon FontFamily="Segoe Fluent Icons"
+                                          Glyph="{x:Bind PinGlyph, Mode=OneWay}"
+                                          Opacity="{x:Bind PinOpacity, Mode=OneWay}"
+                                          FontSize="14" />
+                            </Button>
+
+                            <Button Grid.Column="3"
+                                    Tag="{x:Bind}"
+                                    Click="DeleteButton_Click"
+                                    Background="Transparent"
+                                    BorderThickness="0"
+                                    Padding="6"
+                                    ToolTipService.ToolTip="삭제">
+                                <FontIcon FontFamily="Segoe Fluent Icons"
+                                          Glyph="&#xE74D;"
+                                          FontSize="14"
+                                          Foreground="{ThemeResource SystemFillColorCriticalBrush}" />
+                            </Button>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </Grid>
+
+        <!-- 설정 패널 (토글 표시) -->
+        <Grid x:Name="SettingsView"
+              Visibility="Collapsed"
+              Padding="20"
+              RowSpacing="16"
+              Background="{ThemeResource LayerFillColorDefaultBrush}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <Grid>
+                <TextBlock Text="Clipit 설정"
+                           FontSize="18"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center" />
+                <Button HorizontalAlignment="Right"
+                        Click="CloseSettingsButton_Click"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Padding="6">
+                    <FontIcon FontFamily="Segoe Fluent Icons" Glyph="&#xE711;" FontSize="14" />
+                </Button>
+            </Grid>
+
+            <StackPanel Grid.Row="1" Spacing="20">
+                <StackPanel Spacing="6">
+                    <TextBlock Text="최대 기록 보관 개수 (고정 항목 제외)" FontWeight="SemiBold" />
+                    <NumberBox x:Name="MaxCountBox"
+                               Minimum="10"
+                               Maximum="500"
+                               SpinButtonPlacementMode="Inline"
+                               ValueChanged="MaxCountBox_ValueChanged" />
+                </StackPanel>
+
+                <ToggleSwitch x:Name="CloseOnBlurToggle"
+                              Header="창 바깥 클릭 시 자동으로 숨기기"
+                              Toggled="CloseOnBlurToggle_Toggled" />
+
+                <StackPanel Spacing="4">
+                    <TextBlock Text="단축키 안내" FontWeight="SemiBold" />
+                    <TextBlock Text="• 호출: Alt + V (충돌 시 Ctrl + Shift + V)"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               FontSize="13" />
+                    <TextBlock Text="• 탐색 및 복사: ↑ / ↓ 방향키 + Enter"
+                               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                               FontSize="13" />
+                </StackPanel>
+            </StackPanel>
+
+            <Button Grid.Row="2"
+                    Content="완료"
+                    Style="{StaticResource AccentButtonStyle}"
+                    HorizontalAlignment="Stretch"
+                    Click="CloseSettingsButton_Click" />
+        </Grid>
+    </Grid>
+</winex:WindowEx>
