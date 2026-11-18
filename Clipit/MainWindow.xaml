@@ -16,14 +16,25 @@
 
     <Grid>
         <!-- 메인 클립보드 뷰 -->
-        <Grid x:Name="MainView" Padding="16" RowSpacing="12">
+        <Grid x:Name="MainView" Padding="16,8,16,16" RowSpacing="10">
             <Grid.RowDefinitions>
+                <RowDefinition Height="24" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
+            <!-- 상단 드래그 핸들 영역 -->
+            <Grid x:Name="DragBar" Background="Transparent">
+                <Border Width="40"
+                        Height="4"
+                        CornerRadius="2"
+                        Background="{ThemeResource ControlStrongFillColorDefaultBrush}"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center" />
+            </Grid>
+
             <!-- 상단 검색 + 전체 비우기 + 설정 버튼 -->
-            <Grid ColumnSpacing="8">
+            <Grid Grid.Row="1" ColumnSpacing="8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -52,7 +63,7 @@
 
             <!-- 클립보드 리스트 -->
             <ListView x:Name="HistoryList"
-                      Grid.Row="1"
+                      Grid.Row="2"
                       SelectionMode="Single"
                       IsItemClickEnabled="True"
                       ItemClick="HistoryList_ItemClick"

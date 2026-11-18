@@ -2,7 +2,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using System;
-using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using Windows.System;
@@ -14,7 +14,9 @@ namespace Clipit
     {
         private readonly ClipboardService _clipboardService = new();
         private WinUIEx.Messaging.WindowMessageMonitor? _monitor;
+        private TrayIcon? _trayIcon;
         private bool _isLoadingSettings = false;
+        private bool _isExiting = false;
 
         private const int HOTKEY_ID = 9000;
         private const uint MOD_ALT = 0x0001;
@@ -36,6 +38,10 @@ namespace Clipit
         {
             this.InitializeComponent();
 
+            // 커스텀 드래그 영역을 시스템 타이틀바로 지정
+            this.ExtendsContentIntoTitleBar = true;
+            this.SetTitleBar(DragBar);
+
             HistoryList.ItemsSource = _clipboardService.Items;
             _clipboardService.Start();
 
@@ -47,6 +53,39 @@ namespace Clipit
 
             var hwnd = this.GetWindowHandle();
 
+            // 시스템 트레이 아이콘 즉석 생성 및 등록
+            string iconPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "Clipit",
+                "tray.ico");
+            EnsureTrayIconFile(iconPath);
+
+            _trayIcon = new TrayIcon(1, iconPath, "Clipit (Alt + V)");
+            _trayIcon.Selected += (s, e) => ToggleWindow();
+            _trayIcon.ContextMenu += (s, e) =>
+            {
+                var flyout = new MenuFlyout();
+
+                var openItem = new MenuFlyoutItem { Text = "Clipit 열기 (Alt + V)" };
+                openItem.Click += (_, _) => ToggleWindow();
+
+                var exitItem = new MenuFlyoutItem { Text = "완전 종료" };
+                exitItem.Click += (_, _) =>
+                {
+                    _isExiting = true;
+                    _trayIcon?.Dispose();
+                    Application.Current.Exit();
+                };
+
+                flyout.Items.Add(openItem);
+                flyout.Items.Add(new MenuFlyoutSeparator());
+                flyout.Items.Add(exitItem);
+
+                e.Flyout = flyout;
+            };
+            _trayIcon.IsVisible = true;
+
+            // 글로벌 단축키 리스너
             _monitor = new WinUIEx.Messaging.WindowMessageMonitor(this);
             _monitor.WindowMessageReceived += (s, e) =>
             {
@@ -62,7 +101,7 @@ namespace Clipit
                 RegisterHotKey(hwnd, HOTKEY_ID, MOD_CONTROL | MOD_SHIFT | MOD_NOREPEAT, VK_V);
             }
 
-            // 창 바깥 클릭 시 자동 닫힘 (설정 창이 열려 있을 때는 실수로 닫히지 않게 예외 처리)
+            // 창 바깥 클릭 시 자동 숨김
             this.Activated += (s, e) =>
             {
                 if (e.WindowActivationState == WindowActivationState.Deactivated
@@ -73,7 +112,7 @@ namespace Clipit
                 }
             };
 
-            // Esc 키 처리 (설정 창 열려 있으면 설정부터 닫고, 아니면 창 숨김)
+            // Esc 키 처리
             this.Content.KeyDown += (s, e) =>
             {
                 if (e.Key == VirtualKey.Escape)
@@ -85,10 +124,19 @@ namespace Clipit
                 }
             };
 
+            // 닫기 버튼/Alt+F4 시 트레이로 숨기고, 트레이 완전 종료 시에만 앱 종료
             this.Closed += (s, e) =>
             {
+                if (!_isExiting)
+                {
+                    e.Handled = true;
+                    this.Hide();
+                    return;
+                }
+
                 UnregisterHotKey(hwnd, HOTKEY_ID);
                 _clipboardService.Stop();
+                _trayIcon?.Dispose();
             };
         }
 
@@ -104,12 +152,10 @@ namespace Clipit
                 SearchBox.Text = string.Empty;
                 RefreshFilter();
 
-                this.CenterOnScreen();
                 this.Show();
                 SetForegroundWindow(this.GetWindowHandle());
                 this.Activate();
 
-                // 팝업 열리면 첫 번째 항목 자동 선택 + 검색창 포커스
                 if (HistoryList.Items.Count > 0)
                     HistoryList.SelectedIndex = 0;
 
@@ -117,7 +163,6 @@ namespace Clipit
             }
         }
 
-        // 검색창에 포커스가 있는 상태에서도 ↑ / ↓ / Enter 키가 작동하도록 가로채기
         private void SearchBox_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
         {
             int count = HistoryList.Items.Count;
@@ -241,6 +286,64 @@ namespace Clipit
 
             if (HistoryList.Items.Count > 0)
                 HistoryList.SelectedIndex = 0;
+        }
+
+        private static void EnsureTrayIconFile(string path)
+        {
+            if (File.Exists(path)) return;
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
+            const int w = 16, h = 16;
+            int pixelBytes = w * h * 4;
+            int maskBytes = w * 4;
+            int dibSize = 40 + pixelBytes + maskBytes;
+
+            using var fs = new FileStream(path, FileMode.Create, FileAccess.Write);
+            using var bw = new BinaryWriter(fs);
+
+            bw.Write((ushort)0);
+            bw.Write((ushort)1);
+            bw.Write((ushort)1);
+
+            bw.Write((byte)w);
+            bw.Write((byte)h);
+            bw.Write((byte)0);
+            bw.Write((byte)0);
+            bw.Write((ushort)1);
+            bw.Write((ushort)32);
+            bw.Write((uint)dibSize);
+            bw.Write((uint)22);
+
+            bw.Write((uint)40);
+            bw.Write((int)w);
+            bw.Write((int)(h * 2));
+            bw.Write((ushort)1);
+            bw.Write((ushort)32);
+            bw.Write((uint)0);
+            bw.Write((uint)(pixelBytes + maskBytes));
+            bw.Write(0); bw.Write(0); bw.Write(0); bw.Write(0);
+
+            for (int y = 0; y < h; y++)
+            {
+                int topY = h - 1 - y;
+                for (int x = 0; x < w; x++)
+                {
+                    uint bgra = 0x00000000;
+
+                    if (x >= 2 && x <= 13 && topY >= 2 && topY <= 14)
+                        bgra = 0xFF0078D4;
+
+                    if (x >= 4 && x <= 11 && topY >= 5 && topY <= 12)
+                        bgra = 0xFFFFFFFF;
+
+                    if (x >= 5 && x <= 10 && topY >= 1 && topY <= 3)
+                        bgra = 0xFFE1E1E1;
+
+                    bw.Write(bgra);
+                }
+            }
+
+            bw.Write(new byte[maskBytes]);
         }
     }
 }
