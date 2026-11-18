@@ -1,12 +1,5 @@
-bin/
-obj/
-.vs/
+﻿.vs/
+[Bb]in/
+[Oo]bj/
 *.user
 *.suo
-
-AppPackages/
-BundleArtifacts/
-*.pfx
-*.cer
-*.msix
-*.appxupload
